@@ -25,19 +25,18 @@ from argparse import ArgumentParser
 import aiohttp
 
 from __init__ import UTF_8, CONFIDENCE_COLUMN, \
-    UTTERANCE_COLUMN, PREDICTED_INTENT_COLUMN, \
+    UTTERANCE_COLUMN, SECOND_INTENT,PREDICTED_INTENT_COLUMN, \
     DETECTED_ENTITY_COLUMN, DIALOG_RESPONSE_COLUMN, \
     marshall_entity, save_dataframe_as_csv, INTENT_JUDGE_COLUMN, \
     TEST_OUT_FILENAME, BOOL_MAP, WCS_VERSION, BASE_URL, \
     parse_partial_credit_table, SCORE_COLUMN
 
-test_out_header = [PREDICTED_INTENT_COLUMN, CONFIDENCE_COLUMN,
+test_out_header = [PREDICTED_INTENT_COLUMN, CONFIDENCE_COLUMN,SECOND_INTENT,
                    DETECTED_ENTITY_COLUMN, DIALOG_RESPONSE_COLUMN,
                    SCORE_COLUMN]
 
 MSG_ENDPOINT = BASE_URL + '/v1/workspaces/{}/message?version={}'
 MAX_RETRY_LIMIT = 5
-
 
 async def post(session, json, url, sem):
     """ Single post restrained by semaphore
@@ -46,21 +45,14 @@ async def post(session, json, url, sem):
     async with sem:
         while True:
             try:
-                # Include user_id in request body for Plus and Premium plans
-                json.update({
-                    'context': {
-                        'metadata': {
-                            'user_id': 'test'
-                        }
-                    }
-                })
                 async with session.post(url, json=json, raise_for_status=True) as response:
                     res = await response.json()
                     return res
             except Exception as e:
                 # Max retries reached, print out the response payload
                 if counter == MAX_RETRY_LIMIT:
-                    print(e)
+                    print(response.status)
+                    print(response.text)
                     raise e
                 counter += 1
                 print("RETRY")
@@ -75,8 +67,6 @@ async def fill_df(utterance, row_idx, out_df, workspace_id, wa_username,
             auth=aiohttp.BasicAuth(wa_username, wa_password)) as session:
         url = MSG_ENDPOINT.format(workspace_id, WCS_VERSION)
 
-        # Replace newline chars before sending to WA
-        utterance = utterance.replace('\n', ' ')
         resp = await post(session, {'input': {'text': utterance},
                                     'alternate_intents': True}, url, sem)
         intents = resp['intents']
@@ -85,6 +75,8 @@ async def fill_df(utterance, row_idx, out_df, workspace_id, wa_username,
                 intents[0]['intent']
             out_df.loc[row_idx, CONFIDENCE_COLUMN] = \
                 intents[0]['confidence']
+            out_df.loc[row_idx, SECOND_INTENT] =  \
+                intents[1]['intent']
 
         out_df.loc[row_idx, DETECTED_ENTITY_COLUMN] = \
             marshall_entity(resp['entities'])
@@ -152,7 +144,7 @@ def func(args):
                     == out_df[PREDICTED_INTENT_COLUMN]).map(BOOL_MAP)
             out_df[SCORE_COLUMN] = \
                 out_df[INTENT_JUDGE_COLUMN].map({'yes': 1, 'no': 0})
-
+                
     if args.partial_credit_table is not None:
         credit_tables = parse_partial_credit_table(args.partial_credit_table)
         for row_idx in range(out_df.shape[0]):

@@ -26,6 +26,7 @@ TEST_FILENAME = 'test.csv'
 TEST_OUT_FILENAME = 'test-out.csv'
 TRAIN_INTENT_FILENAME = 'intent-train.csv'
 TRAIN_ENTITY_FILENAME = 'entity-train.csv'
+CONFUSION = 'confusion.csv'
 
 # CSV column names
 INTENT_COLUMN = 'intent'
@@ -33,6 +34,7 @@ CONFIDENCE_COLUMN = 'confidence'
 UTTERANCE_COLUMN = 'utterance'  # used in any intermediate file
 INTENT_JUDGE_COLUMN = 'does intent match'
 PREDICTED_INTENT_COLUMN = 'predicted intent'
+SECOND_INTENT = 'second intent'
 DETECTED_ENTITY_COLUMN = 'detected entity'
 DIALOG_RESPONSE_COLUMN = 'dialog response'
 GOLDEN_INTENT_COLUMN = 'golden intent'

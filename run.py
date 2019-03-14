@@ -60,6 +60,8 @@ BLIND_FIGURE_TITLE = 'blind_figure_title'
 MAX_TEST_RATE = DEFAULT_TEST_RATE
 
 KFOLD_UNION_FILE = 'kfold-test-out-union.csv'
+KFOLD_CONFUSION_ACTUAL = 'confusion_actual.csv'
+KFOLD_CONFUSION_SECONDARY = 'confusion_secondary.csv'
 
 
 def validate_config(fields, section):
@@ -181,15 +183,15 @@ def kfold(fold_num, temp_dir, intent_train_file, workspace_base_file,
         print('Tested {} workspaces'.format(str(fold_num)))
 
         test_out_files = [fold_param[TEST_OUT] for fold_param in fold_params]
-
+            
         # Add a column for the fold number
         for idx, this_file in enumerate(test_out_files):
             this_df = pd.read_csv(this_file, quoting=csv.QUOTE_ALL, encoding='utf-8', \
                                keep_default_na=False)
             this_df['Fold Index'] = idx
             this_df.to_csv( this_file, encoding='utf-8', quoting=csv.QUOTE_ALL, index=False )
-        
-
+                
+                
         # Union test out
         pd.concat([pd.read_csv(file, quoting=csv.QUOTE_ALL, encoding=UTF_8,
                                keep_default_na=False)
@@ -211,6 +213,23 @@ def kfold(fold_num, temp_dir, intent_train_file, workspace_base_file,
         else:
             raise RuntimeError('Failure in plotting curves')
     finally:
+        first = list()
+        second = list()
+        actual = list()
+        for idx, this_file in enumerate(test_out_files):
+            if idx <= (fold_num-1):
+                this_df = pd.read_csv(this_file, quoting=csv.QUOTE_ALL, encoding='utf-8',keep_default_na=False)
+                actual.extend(this_df['golden intent'])               
+                first.extend(this_df['predicted intent']) 
+                second.extend(this_df['second intent'])
+        act = pd.Series(actual)
+        pred = pd.Series(first)
+        sec = pd.Series(second)
+        df_confusion1 =  pd.crosstab(act,pred,margins=True)
+        df_confusion2 = pd.crosstab(act,sec,margins=True)
+        df_confusion1.to_csv(os.path.join(working_dir, KFOLD_CONFUSION_ACTUAL) , encoding='utf-8', quoting=csv.QUOTE_ALL )
+        df_confusion2.to_csv(os.path.join(working_dir, KFOLD_CONFUSION_SECONDARY) , encoding='utf-8', quoting=csv.QUOTE_ALL )
+        
         if not keep_workspace:
             workspace_ids = []
             for idx in range(fold_num):
